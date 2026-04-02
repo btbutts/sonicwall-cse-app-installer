@@ -48,12 +48,24 @@ if (!$INVITE_CODE -or !$DEPLOYMENT_KEY) {
     exit 1
 }
 
+# Wrap app version check in try block to capture response anyways when request
+# is returned with status_code 302 (Moved Temporarily), causing the req to fail
 if (!$APP_VERSION) {
     Write-Host "Checking for latest version of app"
-    $resp = Invoke-WebRequest -Uri "https://www.banyanops.com/app/windows/v3/latest" -MaximumRedirection 0 -ErrorAction SilentlyContinue -UseBasicParsing
-    $loc = $resp.Headers.Location
-    if ($loc -match 'sonicwallcse-([0-9]+\.[0-9]+\.[0-9]+)\.exe') {
-        $APP_VERSION = $matches[1].Trim()
+    try {
+        # Attempt the request; -MaximumRedirection 0 forces it to "fail" on the redirect
+        $resp = Invoke-WebRequest -Uri "https://www.banyanops.com/app/windows/v3/latest" -MaximumRedirection 0 -ErrorAction SilentlyContinue -UseBasicParsing
+    }
+    catch {
+        # Capture the response from the exception even though it "failed"
+        $resp = $_.Exception.Response
+    }
+
+    if ($resp) {
+        $loc = $resp.Headers.Location
+        if ($loc -match 'sonicwallcse-([0-9]+\.[0-9]+\.[0-9]+)\.exe') {
+            $APP_VERSION = $matches[1].Trim()
+        }
     }
 }
 
